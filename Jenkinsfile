@@ -39,8 +39,25 @@ browserstack('978951c6-edd7-4beb-b45c-ea2fb6857971') {
         notifySlack()
 		
         timestamps {
-                    
-				stage('test') {
+		
+                    stage('Compile') {
+				
+                withEnv(setupEnv()) {
+				
+                    checkout scm
+                                       
+
+                    try {
+                        bat 'mvn compile'
+      
+                    }
+                    catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+						throw e
+                    }
+                }
+            }
+				stage('Testing') {
 				
                 withEnv(setupEnv()) {
                     checkout scm
