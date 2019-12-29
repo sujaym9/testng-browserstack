@@ -6,33 +6,42 @@ def setupEnv() {
 }
 
 
-def notifyFailed(Exception e, boolean failBuild, boolean isBDD, String failDescription) {
-    String buildResult = (failBuild && !isBDD) ? "FAILED" : "UNSTABLE";
-    currentBuild.result = buildResult;
-    slackBuildColor = failBuild ? '#FF0000' : '#fffc66';
-    slackSend(color: slackBuildColor, channel: '#qa_test', message: currentBuild.result + ": Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
-   
+def notifySlack(String buildStatus = 'STARTED') {
+    // Build status of null means success.
+    buildStatus = buildStatus ?: 'SUCCESS'
 
-    throw e;
+    def color
+
+    if (buildStatus == 'STARTED') {
+        color = '#D4DADF'
+    } else if (buildStatus == 'SUCCESS') {
+        color = '#BDFFC3'
+    } else if (buildStatus == 'UNSTABLE') {
+        color = '#FFFE89'
+    } else {
+        color = '#FF9FA1'
+    }
+
+    def msg = "${buildStatus}: `${env.JOB_NAME}` #${env.BUILD_NUMBER}:\n More info at: ${env.BUILD_URL}"
+
+    slackSend(color: color, channel: '#qa_test', message: msg)
 }
 
 
 
 
-
-def notifyStart() {
-    slackSend(color: '#FFFF00', channel: '#qa_test', message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
-}
 
 node {
 
 browserstack('978951c6-edd7-4beb-b45c-ea2fb6857971') {
     
 	 try{
-        notifyStart()
+        notifySlack()
 		
         timestamps {
-                       stage('test') {
+                    
+				stage('test') {
+				
                 withEnv(setupEnv()) {
                     checkout scm
                                        
@@ -42,7 +51,9 @@ browserstack('978951c6-edd7-4beb-b45c-ea2fb6857971') {
       
                     }
                     catch (Exception e) {
-                        notifyFailed(e, true, false, "Compile failure");
+                        currentBuild.result = 'FAILURE'
+						
+						throw e
                     }
                 }
             }
@@ -51,7 +62,7 @@ browserstack('978951c6-edd7-4beb-b45c-ea2fb6857971') {
             
         }
     } finally {
-        echo 'Closing Jenkins Jobs'
+        notifySlack(currentBuild.result)
        
     }
 }
